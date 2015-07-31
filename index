@@ -1,0 +1,44 @@
+var page=Class.create();
+Object.extend(page.prototype ,{
+	name:"page",
+	initialize:function(){
+	  	this.initializeField();
+	  	this.initializeDOM();
+	  	this.initializeEvent();
+	  	this.initializeControl();
+	  	this.load();
+	  	this.reader();
+ },
+
+
+initializeField:function(){
+
+ },
+
+initializeDOM:function(){
+ 	this.leftButton = $("leftButton");
+ 	this.rightButton = $("rightButton");
+ 	this.showpic = $("showpic");
+ },
+
+
+destroyDOM:function(){
+ 	this.leftButton = null;
+ 	this.rightButton = null;
+ 	this.showpic = null;
+ },
+
+
+initializeEvent:function(){
+  	
+  },
+initializeControl:function(){
+
+  },
+load:function(){
+
+  },
+reader:function(){
+
+  }
+  });
