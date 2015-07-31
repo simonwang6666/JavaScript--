@@ -1,0 +1,65 @@
+var menu = Class.create();
+Object.extend(menu.prototype, {
+      name:"menu",
+      count:1,                     //当前执行切换的次数
+      options:{
+        leftbutton:'leftbutton',   //左箭头id
+        rightbutton:'rightbutton', //右箭头id
+        showpic:'pic',             //显示端的盒子id
+        timeout:5,                 //定时器延迟时间
+        picwidth:140,              //当前图片像素宽度
+        picnum:4,                  //当前图片总数
+        onMenuShowCallback:null,   //
+        time1:null,                //按下左按钮的定时器
+        time2:null                 //按下右按钮的定时器
+       },
+
+
+setOptions:function(options){
+   	  Object.extend(Object.extend(this,this.options),options);
+     },
+initialize:function(options){
+      this.setOptions(options);
+      this.initializeDOM();
+      this.initializeEvent();
+     },
+initializeDOM:function(){
+		  this.leftbutton = document.getElementById(this.leftbutton);
+		  this.rightbutton = document.getElementById(this.rightbutton);
+		  this.showpic = document.getElementById(this.showpic);
+	},
+detroyDOM:function(){
+		  this.leftbutton = null;
+		  this.rightbutton = null;
+	},
+  //单机左按钮
+onLeftClick:function(){
+      if(this.count > 1 && this.time1 == null && this.time2 == null){
+          var recentleft = parseInt(this.showpic.style.left);   //获取当前left偏移值
+          var trans = recentleft;                               //中间变量保存，以便于判断
+          //设置图片滑动的运动过程
+          this.time1 = setInterval(function(){if(recentleft-trans<this.picwidth){recentleft += 1;this.showpic.style.left=""+recentleft+"px";}else{ clearInterval(this.time1);this.time1=null}}.bind(this),this.timeout);
+          this.count--;    
+        }
+  },
+  //单机右按钮
+onRightClick:function(){
+           
+      if(this.count<this.picnum&&this.time1 == null&&this.time2 == null){
+          var recentleft = parseInt(this.showpic.style.left);
+          var trans = recentleft;
+          this.time2 = setInterval(function(){if(trans-recentleft<this.picwidth){recentleft -= 1;this.showpic.style.left=""+recentleft+"px";}else{ clearInterval(this.time2);this.time2=null}}.bind(this),this.timeout);
+          this.count++;
+       }
+  },
+initializeEvent:function(){
+		  this.onClickHandler=this.onLeftClick.bind(this);
+		  this.leftbutton.observe("click",this.onClickHandler);
+		  this.onClickHandler=this.onRightClick.bind(this);
+		  this.rightbutton.observe("click",this.onClickHandler);
+	},
+	
+close:function(){
+    	this.detroyDOM();
+    }
+  });
