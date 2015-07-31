@@ -1,0 +1,672 @@
+var IndexClient = Class.create();
+
+IndexClient.prototype = {
+
+    name: "IndexClient",
+
+    //服务器端方法
+    server: {
+        getTicketEventCinemas: function (eventId, locationId, clientCallBack) {
+            return Mtime.Component.Ajax.request(serverUrl, 'Mtime.Api.Pages.CommonLotteryService', 'GetTicketEventCinemas', [eventId, locationId], clientCallBack, '/Service/CommonLottery.api?Ajax_CallBack=true', 'get', '10000');
+        },
+        grantVocher: function (eventName, clientCallBack) {
+            return Mtime.Component.Ajax.request(serverUrl, 'Mtime.Api.Pages.VoucherService', 'GrantVocher', [eventName], clientCallBack, '/Service/Voucher.api?Ajax_CallBack=true', 'post', '10000');
+        },
+        getRemainVocherCount: function (eventName, clientCallBack) {
+            return Mtime.Component.Ajax.request(serverUrl, 'Mtime.Api.Pages.VoucherService', 'GetRemainVocherCount', [eventName], clientCallBack, '/Service/Voucher.api?Ajax_CallBack=true', 'post', '10000');
+        },
+        getTicketEventInfo: function (eventId, clientCallBack) {
+            return Mtime.Component.Ajax.request(serverUrl, 'Mtime.Api.Pages.CommonLotteryService', 'GetTicketEventInfo', [eventId], clientCallBack, '/Service/CommonLottery.api?Ajax_CallBack=true', 'get', '10000');
+        }
+    },
+
+    //初始化
+    initialize: function () {
+        this.initializeField();
+        this.initializeDOM();
+        this.initializeControl();
+        this.initializeEvent();
+        this.load();
+    },
+
+    initializeField: function () {
+    },
+    ////////////////////////////////////////////////////////////////////////////////////////
+    initializeDOM: function () {
+        this.cinemaListRegion = $("cinemaListRegion");
+        this.currentCityNameCn = $("currentCityNameCn");
+        this.voucherButton = $("voucherButton");
+    },
+
+    destroyDOM: function () {
+        this.cinemaListRegion = null;
+        this.currentCityNameCn = null;
+    },
+
+    initializeEvent: function () {
+        if (this.voucherButton) {
+            this.onClickVoucherButtonHandler = this.onClickVoucherButton.bindAsEventListener(this);
+            this.voucherButton.observe("click", this.onClickVoucherButtonHandler);
+        }
+        Event.observe(window, "unload", this.close.bind(this));
+    },
+
+    destroyEvent: function () {
+        if (this.voucherButton) {
+            this.voucherButton.stopObserving("click", this.onClickVoucherButtonHandler);
+        }
+    },
+    /////////////////////////////////////////////////////////////////////////////////////////
+
+    initializeControl: function () {
+        this.server.getTicketEventInfo(eventId, function () {
+            var result = getTicketEventInfoResult;
+            if (result && result.value) {
+                var info = result.value.eventInfo;
+                $loadJs(['/js/2014/share.js'], function () {
+                    new RightFloatToolsControl({
+                        hasFavoriteButton: false,
+                        hasMessageButton: false,
+                        hasCodeButton: false,
+                        //**分享**\\ 
+                        //类型 
+                        //ShareRelatedObjectTypes.MovieLongComment = 6401 
+                        shareRelatedObjType: 6401,
+                        link: info.ShareUrl,
+                        //标题 
+                        title: info.ShareTitle,
+                        //图片地址 
+                        pic: info.ShareImagePath,
+                        //描述 
+                        desc: ""
+                    });
+                });
+            }
+        } .bind(this));
+
+        $loadJs("/js/2014/topmenu.js", function () {
+            initializeManager({
+                type: 0 //0：频道页，1：二级页
+            });
+        });
+    },
+    //销毁控件
+    destroyControl: function () {
+    },
+
+    load: function () {
+        var cityId;
+        var queryString = location.hash.replace("#", "");
+        var regs = /^\d+$/;
+        if (queryString && regs.test(queryString)) {
+            cityId = queryString;
+        }
+
+        $loadSubJs('featureCityMenu.js?1', function () {
+            this.menu = new FeatureCityMenu({
+                container: 'changeCityButton',
+                eventId: eventId,
+                cityId: cityId,
+                hotCount: 40,
+                style: "width: 600px; position: absolute; top: 27px; left:0;display:none;",
+                commandCallback: function (city) {
+                    this.currentCityNameCn.innerHTML = city.NameCn;
+                    this.loadCinemaList(city.Id);
+                    location.hash = "#" + city.Id;
+                } .bind(this)
+            });
+        } .bind(this));
+        if (this.voucherButton) {
+            this.getCount();
+        }
+    },
+
+    getCount: function () {
+        
+    },
+
+    onClickVoucherButton: function (evt) {
+        this.server.grantVocher(eventName, function () {
+            var result = getVocherResult;
+            if (result.value) {
+                if (result.value.status == 7) {
+
+                    this.showGrantVoucherMsg(result.value.msg);
+
+                    //$alert(result.value.msg + '<br/><a target="_blank" href="http://my.mtime.com/account/voucher/">查看我的优惠劵&gt;&gt;</a>');
+                    return;
+                }
+            }
+            $alert(result.value.msg);
+        } .bind(this));
+    },
+
+    showGrantVoucherMsg: function (msg) {
+    },
+
+    bindClickButtons: function (dialog) {
+        this.onCheckCancelHandler = this.onCheckCancel.bind(this);
+        //取消
+        this.btnCancel = dialog.getEl("btnCancel");
+        this.btnCancel.observe("click", this.onCheckCancelHandler);
+        //跳转
+        this.lnkMyVoucher = dialog.getEl("lnkMyVoucher");
+        this.lnkMyVoucher.observe("click", this.onCheckCancelHandler);
+    },
+
+    //关闭弹出层
+    onCheckCancel: function (evt) {
+        this.payDialog.close();
+    },
+
+    //跳转
+    onClickMyVoucher: function (evt) {
+        this.payDialog.close();
+    },
+
+    loadCinemaList: function (cityId) {
+        this.server.getTicketEventCinemas(eventId, cityId, function () {
+            var result = getTicketEventCinemasResult;
+            if (result && result.value && result.value.cinemas) {
+                var currentDate = new Date();
+                var strSearchDate = '?d=20150730&m=216918';
+                if ((currentDate.getMonth() == 6 && currentDate.getDate() >= 30) || (currentDate.getMonth() > 6)) {
+                    strSearchDate = '?d=20150730&m=216918';
+                } else {
+                    strSearchDate = '?d=20150730&m=216918';
+                }
+
+
+                var list = result.value.cinemas.List;
+                var htmlBuilder = new StringBuilder();
+                for (i = 0; i < list.length; i++) {
+					var cinema = list[i];
+                    var builder = new StringBuilder();
+					if( cinema.MinPrice != 0){
+						builder.append('<li><div class="lbox">');
+						builder.append('<h3><a href="#{CinemaUrl}' + strSearchDate + '" target="_blank">#{CinemaName}</a></h3>');
+						builder.append('<p>地址：#{CinemaAddress}【<a href="#{CinemaMapUrl}" target="_blank">地图</a>】</p>');
+						builder.append('<p class="lastp">价格：<span class="co_price">￥<strong>#{MinPrice}</strong></span> 元起</p>');
+						builder.append('<p class="mt20"><a href="#{CinemaUrl}' + strSearchDate + '" class="xianshi" target="_blank">立即购票</a></p>');
+						builder.append("</div></li>");
+						//
+						var template = new Template(builder.toString());
+                    	cinema.CinemaAddress = cinema.CinemaAddress.truncate(16);
+                    	htmlBuilder.append(template.evaluate(cinema));
+					}
+
+                }
+                this.cinemaListRegion.innerHTML = htmlBuilder.toString();
+            } else {
+                this.cinemaListRegion.innerHTML = "";
+            }
+        } .bind(this));
+    },
+
+    //资源清理
+    close: function () {
+        this.destroyEvent();
+        this.destroyControl();
+        this.destroyDOM();
+    }
+};
+
+// 右侧浮动操作条
+var RightFloatToolsControl = Class.create();
+
+Object.extend(RightFloatToolsControl.prototype, {
+    options: {
+        //评论容器id
+        editorComment: '',
+        //是否显示搜索 默认为显示
+        hasSearchButton: true,
+        //是否显示分享 默认为显示
+        hasShareButton: true,
+        //是否显示收藏 默认为显示
+        hasFavoriteButton: true,
+        //是否显示评论 默认为显示
+        hasMessageButton: true,
+        //二维码
+        hasCodeButton: true,
+        //是否显示顶部 默认为显示
+        hasTopButton: true,
+
+        //**分享**\\
+        //类型
+        shareRelatedObjType: '',
+        //id
+        relatedId: 0,
+        //扩展关联id
+        expandId: 0,
+        //是否自动加载分享对象信息
+        autoLoad: '',
+        //屏幕截图Url，由使用者传入
+        screenshotImageUrl: '',
+        //电影名
+        movieTitle: '',
+        //城市名
+        cityName: '',
+        //影讯图片链接
+        imageUrl: '',
+        //影讯图片Path
+        imagePath: '',
+        // 电影影讯链接
+        link: '',
+        //mtime数据库 Video表VideoID
+        videoId: 0,
+        //标题
+        title: '',
+        //长标题
+        fullTitle: '',
+        //图片地址
+        pic: '',
+        //描述
+        desc: '',
+        //**分享**\\
+        expandMovieId: 0,
+
+        //**收藏**\\
+        //用户是否登录
+        isLogin: false,
+        //登录页URL
+        signInUrl: "",
+        //对象Id
+        relatedObjId: 0,
+        //对象类型，整站类型
+        relatedObjType: 0,
+        //是否已收藏
+        hasFavorited: false,
+        //**收收藏**\\
+
+        codeTemplate: '<dl><dt><img src="#{codeUrl}" width="115" height="115"></dt><dd><p>扫描二维码</p><p>手机浏览页面</p></dd></dl>'
+    },
+    initialize: function (options) {
+        this.setOptions(options);
+        this.initializeDom();
+        this.initializeEvent();
+        this.load();
+    },
+    setOptions: function (options) {
+        Object.extend(Object.extend(this, this.options), options);
+    },
+    initializeDom: function () {
+        this.scrolltop = 0;
+        this.addDOM();
+        this.rightFloatControls = this.rightFloatControl.immediateDescendants();
+        //顶部导航区
+        this.topbar = $('topbar');
+        //判断是否展开顶部导航区 true为展开，false为收起
+        this.isSearch = true;
+    },
+    initializeEvent: function () {
+        if (this.rightFloatControl) {
+            this.onClickRigtFloatHandler = this.onClickRigtFloat.bind(this);
+            Event.observe(this.rightFloatControl, 'click', this.onClickRigtFloatHandler);
+        }
+        this.onClickBodyHandler = this.onClickBody.bind(this);
+        Event.observe(document.body, "click", this.onClickBodyHandler); //注册body点击事件
+        Event.observe(window, "unload", this.close.bind(this));
+        this.setIntervalTimer();
+    },
+    load: function () {
+
+    },
+    addDOM: function () {
+        //处理是否显示按钮
+        this.showButtonMethod(this.rightFloatControls);
+
+        this.rightFloatControl = Builder.node("div", { className: "mtimebar" }, [
+                                    this.searchbar,
+                                    this.sharebar,
+                                    this.favoritebar,
+                                    this.messagebar,
+                                    this.codebar,
+                                    this.tooltopbar,
+                                    this.sharebox,
+                                    this.favoritbox,
+                                    this.codebox
+                                 ]);
+        document.body.appendChild(this.rightFloatControl);
+
+    },
+    //是否显示Button
+    showButtonMethod: function () {
+        //搜索
+        if (!this.hasSearchButton) {
+            this.searchbar = $(Builder.node('div', { className: "searchbar", title: "搜索", style: "display:none" }));
+        } else {
+            this.searchbar = $(Builder.node("div", { className: "searchbar", title: "搜索", method: "search", style: "display:none" }, [
+                                Builder.node("b", { className: "baron", method: "search" }, ["搜索"])
+                             ]));
+        }
+        //分享
+        if (!this.hasShareButton) {
+            this.sharebar = $(Builder.node('div', { className: "sharebar", title: "分享", style: "display:none" }));
+        } else {
+            this.sharebar = $(Builder.node("div", { className: "sharebar", title: "分享", method: "share" }, [
+                                Builder.node("b", { className: "baron", method: "share" }, ["分享"])
+                            ]));
+        }
+        //收藏
+        if (!this.hasFavoriteButton) {
+            this.favoritebar = $(Builder.node('div', { className: "collectbar", title: "收藏", style: "display:none" }));
+        } else {
+            this.favoritebar = $(Builder.node("div", { className: "collectbar", title: "收藏", method: "favorite" }, [
+                                    Builder.node("b", { className: "baron", method: "favorite" }, ["收藏"])
+                               ]));
+        }
+        //留言
+        if (!this.hasMessageButton) {
+            this.messagebar = $(Builder.node('div', { className: "messagebar", title: "留言", style: "display:none" }));
+        } else {
+            this.messagebar = $(Builder.node("div", { className: "messagebar", title: "留言", method: "message" }, [
+                                    Builder.node("b", { className: "baron", method: "message" }, ["留言"])
+                               ]));
+        }
+        //二维码
+        if (!this.hasCodeButton) {
+            this.codebar = $(Builder.node('div', { className: "codebar", title: "二维码", style: "display:none" }));
+        } else {
+            this.codebar = $(Builder.node("div", { className: "codebar", title: "二维码", method: "code" }, [
+                                Builder.node("b", { className: "baron", method: "code" }, ["二维码"])
+                            ]));
+        }
+        //顶部
+        if (!this.hasTopButton) {
+            this.tooltopbar = $(Builder.node('div', { className: "topbar", title: "返回顶部", style: "display:none" }));
+        } else {
+            this.tooltopbar = $(Builder.node("div", { className: "topbar", title: "返回顶部", method: "backtop", style: "visibility:hidden" }, [
+                                Builder.node("b", { className: "baron", method: "backtop" }, ["返回顶部"])
+                            ]));
+        }
+        this.sharebox = $(Builder.node("div", { className: "sharebox", style: "display:none;" }));
+        this.favoritbox = $(Builder.node("div", { className: "collectbox", style: "display:none;" }));
+        this.codebox = $(Builder.node("div", { className: "codebox", style: "display:none;" }));
+        nullDiv = null;
+    },
+    onClickBody: function (evt) {
+        var el = Event.element(evt);
+        var parentElement = el.up('.mtimebar');
+
+        if (parentElement !== this.rightFloatControl) {
+            this.removeClassName();
+        }
+    },
+    onClickRigtFloat: function (evt) {
+        this.clickElement = Event.element(evt);
+        var method = this.clickElement.readAttribute("method");
+        if (!this.clickElement || this.clickElement === document.body) {
+            return;
+        }
+        switch (method) {
+            //搜索                        
+            case "search":
+                this.removeClassName();
+                if (this.topbar) {
+                    if (this.isSearch) {
+                        this.lockTopBar = true;
+                        this.isSearch = false;
+                        this.topbar.addClassName('scrolltop');
+                        this.scrolltop = document.documentElement.scrollTop || document.body.scrollTop;
+                        //补间动画
+                        this.topbarHeight = this.topbar.getHeight();
+                        var menubg = this.topbar.down('.menubg');
+                        this.topbarHeight += menubg.getHeight();
+                        this.topbar.style.top = -this.topbarHeight + 'px';
+                        var bartop = this.topbar.down('.bartop');
+                        var bartopNum = 0;
+                        if (bartop) {
+                            bartopNum = bartop.getHeight();
+                        }
+                        var topline = this.topbar.down('.topline');
+                        if (!topline) {
+                            topline = this.topbar.down('.bartop');
+                        }
+                        var toplineHeight = topline.getHeight() + bartopNum;
+                        document.body.style.paddingTop = toplineHeight + 'px';
+                        this.topbar.addClassName('transition6');
+                        FunctionExt.defer(function () {
+                            this.topbar.style.position = 'fixed';
+                            this.topbar.style.top = '0px';
+                            menubg = topline = toplineHeight = bartop = bartopNum = null;
+                        }, 200, this);
+                    } else {
+                        this.topbarAnimate();
+                    }
+                }
+                break;
+            //分享                                                                                         
+            case "share":
+                this.removeClassName();
+                if (typeof ShareControlManager !== 'undefined') {
+                    this.instanceShareControl();
+                } else {
+                    $loadJs("/js/2014/share.js", function () {
+                        this.instanceShareControl();
+                    } .bind(this));
+                }
+                this.sharebar.addClassName("curr");
+                this.sharebox.show();
+                break;
+            //收藏                                                                                         
+            case "favorite":
+                this.removeClassName();
+                if (typeof FavoriteButtonControl !== 'undefined') {
+                    this.instanceCollectControl();
+                } else {
+                    $loadJs("/js/2014/favorite.js", function () {
+                        this.instanceCollectControl();
+                    } .bind(this));
+                }
+                //由于需要判断是否登录，由收藏控件内部打开容器，未登录将跳转
+                //this.collectbox.show();
+                break;
+            //留言                                                                                         
+            case "message":
+                this.removeClassName();
+                if ($(this.editorComment)) {
+                    var editorComment = $(this.editorComment);
+                    editorComment.scrollTo();
+                    editorComment.focus();
+                    editorComment = null;
+                }
+                break;
+            //二维码                                                                                         
+            case "code":
+                if (this.codebar.hasClassName('curr')) {
+                    this.removeClassName();
+                } else {
+                    this.removeClassName();
+                    this.setClassName();
+                    this.builderCodeMethod();
+                }
+                break;
+            //返回顶部                                                                                         
+            case "backtop":
+                this.removeClassName();
+                document.body.scrollIntoView();
+                break;
+        }
+        method = null;
+    },
+    //实例分享控件
+    instanceShareControl: function () {
+        if (typeof ToolBannerShareControlManager == 'undefined') {
+            ToolBannerShareControlManager = new ShareControlManager();
+        }
+        if (!this.shareControlManager) {
+            this.shareControlManager = ToolBannerShareControlManager.initShareControl([{
+                //类型
+                shareRelatedObjType: this.shareRelatedObjType,
+                //id
+                relatedId: this.relatedId,
+                //扩展关联Id
+                expandId: this.expandId,
+                //是否自动加载分享对象信息
+                autoLoad: this.autoLoad,
+                //屏幕截图Url，由使用者传入
+                screenshotImageUrl: this.screenshotImageUrl,
+                //电影名
+                movieTitle: this.movieTitle,
+                //城市名
+                cityName: this.cityName,
+                //影讯图片链接
+                imageUrl: this.imageUrl,
+                //影讯图片Path
+                imagePath: this.imagePath,
+                // 电影影讯链接
+                link: this.link,
+                //mtime数据库 Video表VideoID
+                videoId: this.relatedId,
+                //标题
+                title: this.title,
+                //长标题
+                fullTitle: this.fullTitle,
+                //图片地址
+                pic: this.pic,
+                //描述
+                desc: this.desc,
+                shareButton: this.sharebar,
+                expandMovieId: this.expandMovieId,
+                //分享内容容器
+                shareContainer: this.sharebox,
+                callback: this.removeClassName.bind(this)
+            }]);
+        }
+    },
+    //实例收藏控件
+    instanceCollectControl: function () {
+        if (!this.favoriteButtonControl) {
+            this.favoriteButtonControl = new FavoriteButtonControl({
+                //类型
+                shareRelatedObjType: this.shareRelatedObjType,
+                //用户是否登录
+                isLogin: this.isLogin,
+                //登录页URL
+                signInUrl: this.signInUrl,
+                //对象Id
+                relatedObjId: this.relatedObjId,
+                //对象类型，整站类型
+                relatedObjType: this.relatedObjType,
+                //是否已收藏
+                hasFavorited: this.hasFavorited,
+                //收藏按钮Id
+                favoriteButton: this.favoritebar,
+                //收藏内容容器
+                favoriteContainer: this.favoritbox,
+                callback: this.removeClassName.bind(this)
+            });
+        }
+    },
+    builderCodeMethod: function () {
+        var html, item = {},
+            template = new Template(this.codeTemplate),
+            builder = new StringBuilder(),
+            result;
+        if (getNewValue) {
+            result = encodeURIComponent(getNewValue(location.href));
+        } else {
+            result = encodeURIComponent(location.href);
+        }
+        item.codeUrl = siteServiceUrl + '/GetQrCodeHandler.ashx?qrCodeStr=' + result;
+        html = template.evaluate(item);
+        var node = Builder.build(html);
+        this.codebox.appendChild(node);
+        this.codebox.show();
+    },
+    setClassName: function () {
+        for (var i = 0; i <= 5; i++) {
+            if (this.rightFloatControls[i] !== this.clickElement) {
+                this.rightFloatControls[i].addClassName('notcurr');
+            } else {
+                this.rightFloatControls[i].addClassName('curr');
+            }
+        }
+    },
+    removeClassName: function (el) {
+        var i, num1 = 9, num2 = 9;
+        if (el) {
+            if (el === this.sharebar) {
+                num1 = 1;
+                num2 = 6;
+            } else if (el === this.favoritebar) {
+                num1 = 2;
+                num2 = 7;
+            }
+        }
+        for (i = 0; i <= 5; i++) {
+            if (num1 !== i) {
+                if (this.rightFloatControls[i].hasClassName('notcurr')) {
+                    this.rightFloatControls[i].removeClassName('notcurr');
+                }
+                if (this.rightFloatControls[i].hasClassName('curr')) {
+                    this.rightFloatControls[i].removeClassName('curr');
+                }
+            }
+        }
+        for (i = 6; i <= 8; i++) {
+            if (num2 !== i) {
+                this.rightFloatControls[i].hide();
+            }
+        }
+        this.codebox.innerHTML = '';
+        i = num1 = num2 = null;
+    },
+    setIntervalTimer: function () {
+        var clientWidth, scrollTop;
+        scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+        if (this.scrolltop !== scrollTop && this.topbar && this.lockTopBar) {
+            this.topbarAnimate();
+        }
+        if (scrollTop < 200) {
+            if (this.searchbar) {
+                this.searchbar.hide();
+            }
+            if (this.tooltopbar) {
+                this.tooltopbar.style.visibility = 'hidden';
+            }
+        } else {
+            if (this.searchbar) {
+                this.searchbar.show();
+            }
+            if (this.tooltopbar) {
+                this.tooltopbar.style.visibility = 'visible';
+            }
+        }
+        clientWidth = scrollTop = null;
+        this.myTimer = setTimeout(function () {
+            this.setIntervalTimer();
+        } .bind(this), 2000);
+    },
+    topbarAnimate: function () {
+        //补间动画
+        this.topbar.style.top = -this.topbarHeight + 'px';
+        FunctionExt.defer(function () {
+            this.topbar.removeClassName('transition6');
+            this.topbar.removeClassName('scrolltop');
+            this.topbar.style.top = '0px';
+            this.topbar.style.position = '';
+            document.body.style.paddingTop = '';
+            this.lockTopBar = false;
+            this.isSearch = true;
+        }, 600, this);
+    },
+    close: function () {
+        this.destroyEvent();
+        this.destroyDOM();
+        this.destroyField();
+    },
+    destroyField: function () {
+    },
+    destroyEvent: function () {
+        if (this.rightFloatControl) {
+            Event.stopObserving(this.rightFloatControl, 'click', this.onClickRigtFloatHandler);
+        }
+        Event.stopObserving(document.body, "click", this.onClickBodyHandler);
+    },
+    destroyDOM: function () {
+        this.rightFloatControl = null;
+        this.myTimer && clearTimeout(this.myTimer);
+        this.myTimer = null;
+    }
+});
