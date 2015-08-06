@@ -1,0 +1,189 @@
+ar menu = Class.create();
+Object.extend(menu.prototype,{
+	name:"menu",
+	events:[],
+	movies:[],
+	movieindex:0,
+	picindex:1,
+	options:{
+ 		leftbutton:'leftbutton',         //向左切换键
+ 		rightbutton:'rightbutton',		 //向右切换键
+ 		eventyears:'eventyears',		 //活动的时间轴
+ 		movieyears:'movieyears',		 //电影的时间轴
+ 		menuTagname:'li',				 //搜索的孩子结点类型
+ 		eventcontent:'events',			
+ 		moviecontent:'movies'
+ 	},
+setOptions:function(options){
+	Object.extend(Object.extend(this,this.options),options);
+    },
+initialize:function(options){
+    this.setOptions(options);
+    this.initializeDOM();
+    this.initializeEvent();
+    },
+initializeDOM:function(){
+	this.leftbutton = document.getElementById(this.leftbutton);       	
+	this.rightbutton = document.getElementById(this.rightbutton);
+	this.eventyears = document.getElementById(this.eventyears);
+	this.movieyears = document.getElementById(this.movieyears);
+	this.eventcontent = document.getElementById(this.eventcontent);
+	this.moviecontent = document.getElementById(this.moviecontent);
+	this.events = this.eventyears.immediateDescendants();
+	this.movies = this.movieyears.immediateDescendants();
+	this.eventcontents = this.eventcontent.immediateDescendants();
+	this.moviecontents = this.moviecontent.immediateDescendants();
+	for(var i = 0;i<this.eventcontents.length;i++)       	//给活动页面的内容加上id标识
+	{   
+		var string = "event"+i;
+		this.eventcontents[i].setAttribute('id',string);
+	}
+	this.moviecontents = this.moviecontent.immediateDescendants(); //给电影页面加上id标识
+	for(var i = 0;i<this.moviecontents.length;i++)
+	{   
+		var string = "movie"+i;
+		this.moviecontents[i].setAttribute('id',string);
+		this.moviecontents[i].style.position = "relative";
+		this.moviecontents[i].style.left = "0px";
+	}
+	},
+initializeEvent:function(){
+	this.onClickHandler = this.onLeftClick.bind(this);        //捆绑事件
+	this.leftbutton.observe("click",this.onClickHandler);
+	this.onClickHandler = this.onRightClick.bind(this);
+	this.rightbutton.observe("click",this.onClickHandler);
+	this.onClickHandler = this.mouseisonevent.bindAsEventListener(this);
+	this.eventyears.observe("click",this.onClickHandler);
+	this.onMouseoverHandler = this.mouseisoverevent.bindAsEventListener(this);
+	this.eventyears.observe("mouseover",this.onMouseoverHandler);
+	this.onClickHandler = this.mouseisonmovie.bindAsEventListener(this);
+	this.movieyears.observe("click",this.onClickHandler);
+	this.onMouseoverHandler = this.mouseisovermovie.bindAsEventListener(this);
+	this.movieyears.observe("mouseover",this.onMouseoverHandler);
+
+	},                                                      
+mouseisonevent:function(evt){                              //鼠标点击到活动的某一年份
+	var element = Event.findElement(evt,this.menuTagname);
+	if(element !== null){
+		var index = this.indexOfevent(element);
+		for(var i = 0;i<this.events.length;i++)	
+		{   
+			this.events[i].style.background = "#343434";
+			this.events[i].style.color = "#999999";
+			element.style.background = "url(images/color.jpg)";
+			element.style.color = "#FFF";
+			var string = "event"+i;
+			document.getElementById(string).style.display = "none";
+			if(i == index)
+			{
+				document.getElementById(string).style.display = "block";
+			}
+		}
+	}
+
+
+    },
+mouseisoverevent:function(evt){
+	var element = Event.findElement(evt,this.menuTagname);
+	if(element !== null){
+		var index = this.indexOfevent(element);
+		for(var i = 0;i<this.events.length;i++)	
+		{
+			this.events[i].style.background = "#343434";
+			this.events[i].style.color = "#999999";
+			element.style.background = "url(images/color.jpg)";
+			element.style.color = "#FFF";  
+		}
+		}
+	},
+mouseisonmovie:function(evt){
+	var element = Event.findElement(evt,this.menuTagname);
+	this.picindex = 1;
+	var index = this.indexOfmovie(element);
+	this.movieindex = index;
+     for(var j=0;j<this.movies.length;j++){
+	 	document.getElementById('movie'+j).style.left = "0px";
+		}
+	if(element !== null){
+		for(var i = 0;i<this.movies.length;i++)	
+		{   
+			this.movies[i].style.background = "#343434";
+			this.movies[i].style.color = "#999999";
+			element.style.background = "url(images/color.jpg)";
+			element.style.color = "#FFF";
+			var string = "movie"+i;
+			document.getElementById(string).style.display = "none";
+			if(i == index)
+			{
+				document.getElementById(string).style.display = "block";
+			}
+		}
+	}
+	},
+mouseisovermovie:function(evt){
+	var element = Event.findElement(evt,this.menuTagname);
+	if(element !== null){
+		var index = this.indexOfmovie(element);
+	
+		for(var i = 0;i<this.movies.length;i++)	
+		{
+			this.movies[i].style.background = "#343434";
+			this.movies[i].style.color = "#999999";
+			element.style.background = "url(images/color.jpg)";
+			element.style.color = "#FFF";  
+		}
+		}
+	},
+indexOfevent: function(menuElement) {
+	    if ( menuElement && menuElement !== null ) {
+	        var events = this.events, eventnum = null;
+	        for ( var i = 0, count = events.length; i < count; i++ ) {
+	            eventnum = events[i];
+	            if (eventnum == menuElement ) {
+	                return i;
+	            }
+	        }
+	    }
+	    return -1;
+	},
+indexOfmovie:function(menuElement){
+		 if ( menuElement && menuElement !== null ) {
+	        var movies = this.movies, movienum = null;
+	        for ( var i = 0, count = movies.length; i < count; i++ ) {
+	            movienum = movies[i];
+	            if (movienum == menuElement ) {
+	                return i;
+	            }
+	        }
+	    }
+	    return -1;
+	},
+onLeftClick:function(){
+	var string = "movie"+this.movieindex;
+	var num = document.getElementById(string).getElementsByTagName('ul').length;
+	 if(this.picindex > 1)
+	   {
+		
+		var leftnow = parseInt(document.getElementById(string).style.left);
+		leftnow +=1000;
+		document.getElementById(string).style.left = leftnow+"px";
+		this.picindex--;
+		}
+	},
+onRightClick:function(){
+	var string = "movie"+this.movieindex;
+	var num = document.getElementById(string).getElementsByTagName('ul').length;
+	if(this.picindex < num){
+		
+		var leftnow = parseInt(document.getElementById(string).style.left);
+		leftnow -=1000;
+		document.getElementById(string).style.left = leftnow+"px";
+		this.picindex++;
+		}
+}
+
+
+
+
+
+})
